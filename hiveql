@@ -1,0 +1,64 @@
+A.- Create Database
+CREATE DATABASE IF NOT EXISTS flight_info_db;
+
+-- Use the Database
+USE flight_info_db;
+
+-- Drop table if exists
+DROP TABLE IF EXISTS flights;
+
+-- Create internal table
+CREATE TABLE flights (
+    flight_date STRING,
+    airline STRING,
+    flight_num STRING,
+    origin STRING,
+    dest STRING,
+    dep_time INT,
+    arr_time INT,
+    dep_delay DOUBLE,
+    arr_delay DOUBLE
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+STORED AS TEXTFILE;
+
+-- Alter table to add a new column
+ALTER TABLE flights ADD COLUMNS (distance DOUBLE);
+B.-- External table for airports
+CREATE EXTERNAL TABLE IF NOT EXISTS airports (
+    airport_code STRING,
+    airport_name STRING,
+    city STRING,
+    state STRING
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+STORED AS TEXTFILE
+LOCATION '/user/hive/external/airports';
+C.-- Load CSV data into flights table
+LOAD DATA INPATH '/user/hive/warehouse/flights_data.csv' INTO TABLE flights;
+-- Insert a new row into flights table
+INSERT INTO TABLE flights VALUES (
+    '2008-01-01', 'AA', '100', 'JFK', 'LAX', 700, 1000, 10.0, -5.0, 2475.0
+);
+-- Join flights with airports to get origin airport info
+SELECT f.flight_num, f.origin, a.airport_name, f.dep_delay
+FROM flights f
+JOIN airports a
+ON f.origin = a.airport_code
+LIMIT 10;
+D.-- Create index on dep_delay
+CREATE INDEX idx_dep_delay
+ON TABLE flights (dep_delay)
+AS 'COMPACT'
+WITH DEFERRED REBUILD;
+
+-- Build the index
+ALTER INDEX idx_dep_delay ON flights REBUILD;
+E.-- Average departure delay per day in 2008
+SELECT flight_date, AVG(dep_delay) AS avg_dep_delay
+FROM flights
+WHERE flight_date LIKE '2008-%'
+GROUP BY flight_date
+ORDER BY flight_date;
